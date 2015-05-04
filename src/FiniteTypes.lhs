@@ -1,12 +1,13 @@
 > {-# LANGUAGE TemplateHaskell #-}
 >
-> module FiniteTypes ( mkFinite ) where
+> module FiniteTypes ( mkFinite, genericIndex ) where
 > 
 > import Data.List           ( genericIndex )
 > 
 > import Language.Haskell.TH ( Q, Dec, Name, Type, Body, Con ( .. ), Exp, mkName, cxt, normalB,
 >                              normalC, infixApp, conT, litE, stringL, clause, funD, arithSeqE,
 >                              varE, fromToR, instanceD, conP, dataD, appT, appE )
+
 
 This function creates a new data type with exactly the specified number of defined values.
 The datatype is called `N<n>` and has the constructors `N<n>C0, ... N<n>C<n - 1>`.
