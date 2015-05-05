@@ -510,82 +510,40 @@ present relational functions in different text formats.
 > toLatex str = mkLatex 0 str []
 
 > mkLatex :: Int -> RelFunction a b c d -> ShowS
-> mkLatex _ (Constant rel)        = showString constantLatex
->                                    . showLatexParen True
->                                    (showString (relNameToLatex relName))
->    where relName = symbolicName rel
-> mkLatex _ Id                    = showString idLatex
-> mkLatex p (WithBinary op rf sf) = showLatexParen (p > p')
->                                             ( mkLatex p' rf 
->                                              . space
->                                              . showString (binaryOpToLatex op)
->                                              . space
->                                              . mkLatex p' sf )
->     where p' = precOf op
-> mkLatex p (Complement rf)       =   showString "\\overline{" 
->                                   . mkLatex p rf 
->                                   . showString "}"
-> mkLatex p (Transposition rf)    =   showLatexParen (isComposite rf) (mkLatex p rf)
->                                   . showString "^\\top"
-> mkLatex p (Prod rf sf)          =   mkLatex p rf
->                                   . space
->                                   . showString compositionLatex
->                                   . space
->                                   . mkLatex p sf 
-> mkLatex p (LProd r sf)          =   showLatexParen (p >= constProdPrec) 
->                                        (  showString (relNameToLatex (symbolicName r)) 
->                                         . space 
->                                         . showString compositionLatex 
->                                         . space
->                                         . mkLatex constProdPrec sf )
-> mkLatex p (RProd rf s)          =   showLatexParen (p >= constProdPrec)
->                                        (  mkLatex constProdPrec rf 
->                                         . space 
->                                         . showString compositionLatex
->                                         . space 
->                                         . showString (relNameToLatex (symbolicName s)))
-> mkLatex _ (None _)              = showString "\bot\bot\bot"
+> mkLatex = toStringWith (DC con (showString idLatex) bin com tra pro lpr rpr) where
+>   con b rel      = showString constantLatex . showLatexParen b (showString (relNameToLatex rel))
+>   bin b op rf sf = showLatexParen b (rf . space . showString (binaryOpToLatex op) . space . sf)
+>   com _ rf       = showString "\\overline{" . rf . showString "}"
+>   tra b rf       = showLatexParen b (rf . showString "^\\top")
+>   pro rf sf      = rf . space . showString compositionLatex . space . sf
+>   lpr b x rf     = showLatexParen b (  showString (relNameToLatex x) 
+>                                      . space 
+>                                      . showString compositionLatex 
+>                                      . space
+>                                      . rf )
+>   rpr b rf y     = showLatexParen b (  rf
+>                                      . space 
+>                                      . showString compositionLatex 
+>                                      . space
+>                                      . showString (relNameToLatex y) )
 
 > showLatexParen :: Bool -> ShowS -> ShowS
 > showLatexParen b s | b         = showString "\\left(" . s . showString "\\right)"
 >                    | otherwise = s
 
 > instance Show (RelFunction a b c d) where
->   showsPrec _ (Constant rel)        = shows (symbolicName rel)
->   showsPrec _ Id                    = showString idText
->   showsPrec p (WithBinary op rf sf) =   showParen (p > p')
->                                        ( showsPrec p' rf 
->                                          . space 
->                                          . shows op 
->                                          . space
->                                          . showsPrec p' sf )
->      where p' = precOf op        
->   showsPrec p (Complement rf)       =   showString complementText 
->                                       . space 
->                                       . showParen (isComposite rf) (showsPrec p rf)
->   showsPrec p (Transposition rf)    =   showString transpositionText 
->                                       . space 
->                                       . showParen (isComposite rf) (showsPrec p rf)
->   showsPrec p (Prod rf sf)          =   showsPrec p rf 
->                                       . space 
->                                       . showString compositionText 
->                                       . space
->                                       . showsPrec p sf
->   showsPrec p (LProd r sf)          =   showParen (p >= constProdPrec) 
->                                        (  shows (symbolicName r) 
->                                         . space 
->                                         . showString compositionText 
->                                         . space
->                                         . showsPrec constProdPrec sf )
->   showsPrec p (RProd rf s)          =   showParen (p >= constProdPrec)
->                                        (  showsPrec constProdPrec rf 
->                                         . space 
->                                         . showString compositionText
->                                         . space 
->                                         . shows (symbolicName s) )
->   showsPrec _ (None _)              = showString "Unshowable function."
+>   showsPrec = toStringWith (DC (const shows) (showString idText) bin com tra pro lpr rpr) where
+>     bin b op r s = showParen b (r . space . shows op . space . s)
+>     com b r      = showString complementText . space . showParen b r
+>     tra b r      = showString transpositionText . space . showParen b r
+>     pro r s      = r . space . showString compositionText . space . s
+>     lpr b x r    = showParen b (shows x . space . showString compositionText . space . r)
+>     rpr b r y    = showParen b (r . space . showString compositionText . space . shows y)
 
-> data FunctionCapsule = DC { constFun :: RelName -> ShowS,
+A capsule containing all functions necessary to transform an abstract relational function
+into a formatted string.
+
+> data FunctionCapsule = DC { constFun :: Bool -> RelName -> ShowS,
 >                             identFun :: ShowS,
 >                             binFun   :: Bool -> BinaryOp -> ShowS -> ShowS -> ShowS,
 >                             complFun :: Bool -> ShowS -> ShowS,
@@ -596,7 +554,8 @@ present relational functions in different text formats.
 
 > toStringWith :: FunctionCapsule
 >              -> Int -> RelFunction a b c d -> ShowS
-> toStringWith c _ (Constant rel)         = constFun c (symbolicName rel)
+> toStringWith c _ (Constant rel)         = constFun c (isComplexName relName) relName
+>   where relName = symbolicName rel
 > toStringWith c _ Id                     = identFun c
 > toStringWith c p (WithBinary bop rf sf) = binFun c (p > p') 
 >                                                  bop
