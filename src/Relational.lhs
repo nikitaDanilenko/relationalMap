@@ -20,6 +20,98 @@ Composition of functions with different arities: g <.> f :: x -> y -> z; (g <.> 
 > (<.>) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
 > (<.>) = (.) . (.)
 
+> fromLookup :: Eq a => a -> [(a, b)] -> b
+> fromLookup = fromMaybe undefined <.> lookup 
+
+> fromList :: Eq a => [(a, b)] -> a -> b
+> fromList = flip fromLookup
+
+> data BinNameOp = Cup | Cap | Comp | ParComp deriving ( Eq )
+
+> bnoPrec :: BinNameOp -> Int
+> bnoPrec Cup     = 5
+> bnoPrec Cap     = 5
+> bnoPrec Comp    = 6
+> bnoPrec ParComp = 1
+
+> bnoShow :: [(BinNameOp, String)]
+> bnoShow = [(Cup, unionText),
+>            (Cap, intersectionText),
+>            (Comp, compositionText),
+>            (ParComp, parallelSymbol)]
+
+> bnoLatex :: [(BinNameOp, String)]
+> bnoLatex = [(Cup, unionLatex),
+>            (Cap, intersectionLatex),
+>            (Comp, compositionLatex),
+>            (ParComp, parallelSymbol)]
+
+> instance Show BinNameOp where
+>   show = fromList bnoShow
+
+> bnoToLatex :: BinNameOp -> String
+> bnoToLatex = fromList bnoLatex
+
+> data UnaryNameOp = T | C deriving ( Eq )
+
+> unoShow :: [(UnaryNameOp, String)]
+> unoShow = [(T, transpositionText), (C, complementText)]
+
+> instance Show UnaryNameOp where
+>   show = fromList unoShow
+ 
+> data NullaryNameOp = I | O | L | Pi1 | Pi2 deriving ( Eq )
+
+> nnoShow :: [(NullaryNameOp, String)]
+> nnoShow = [(I, identityText),
+>            (O, emptyText),
+>            (L, largestText),
+>            (Pi1, pi1Text),
+>            (Pi2, pi2Text)]  
+
+> nnoLatex :: [(NullaryNameOp, String)]
+> nnoLatex = [(I, identityLatex),
+>             (O, emptyLatex),
+>             (L, largestLatex),
+>             (Pi1, pi1Latex),
+>             (Pi2, pi2Latex)]
+
+> instance Show NullaryNameOp where
+>   show = fromList nnoShow
+
+> nnoToLatex :: NullaryNameOp -> String
+> nnoToLatex = fromList nnoLatex
+
+> data RelName = Plain String 
+>              | Binary BinNameOp RelName RelName
+>              | Unary UnaryNameOp RelName
+>              | Nullary NullaryNameOp
+
+> isComplexName :: RelName -> Bool
+> isComplexName (Nullary _) = False
+> isComplexName _           = True
+
+> showWith :: (BinNameOp -> ShowS -> ShowS -> ShowS) 
+>          -> (UnaryNameOp   -> ShowS -> ShowS)
+>          -> (NullaryNameOp -> ShowS)
+>          -> Int -> RelName -> ShowS
+> showWith f2 f1 f0 = go where
+>   go _ (Plain name)     = showString name
+>   go p (Binary bop r s) = f2 bop (go p' r) (go p' s)
+>     where p' = bnoPrec bop
+>   go p (Unary uop r)    = f1 uop (go p r)
+>   go _ (Nullary nop)    = f0 nop
+
+> instance Show RelName where
+>   showsPrec = showWith (\b r s -> showParen True (r . space . shows b . space . s)) (\uop r -> shows uop . space . r) shows
+
+> relNameToLatex :: RelName -> String
+> relNameToLatex rn = showWith g f (showString . nnoToLatex) 0 rn []
+>   where f C showsr = showString "\\overline{" . showsr . showString "}"
+>         f T showsr = showLatexParen True showsr . showString "^\\top"
+>         
+>         g c r s = showString "\\left(" . r . space . showString (bnoToLatex c) . space . s . showString "\\right)"
+
 Operations on the data type of relations
 ========================================
 
@@ -30,7 +122,7 @@ Checks whether an uncurries pair is contained in a relation.
 
 Data type for relations, represented in the adjacency list format.
 
-> data Rel a b = Rel { related :: Map a (Map b ()), symbolicName :: String }
+> data Rel a b = Rel { related :: Map a (Map b ()), symbolicName :: RelName }
 
 Returns the domain of a relation.
 
@@ -44,7 +136,7 @@ Returns the codomain of a relation.
 
 Creates a relation from a list of adjacency lists.
 
-> fromPairs :: (Ord a, Ord b) => [(a, [b])] -> String -> Rel a b
+> fromPairs :: (Ord a, Ord b) => [(a, [b])] -> RelName -> Rel a b
 > fromPairs ps = Rel (M.fromList ( map (\(a, bs) -> (a, M.fromList (map (\b -> (b, ())) bs))) ps ))
 
 The function `fromNumbers` takes a "relation" of indices and transforms the indices into actual 
@@ -56,20 +148,20 @@ values.
 Creates a relation from a "relation" of indices.
   
 > fromNumbersFull :: (InverseCountable a, InverseCountable b, Ord a, Ord b) 
->                 => [(Integer, [Integer])] -> String -> Rel a b
+>                 => [(Integer, [Integer])] -> RelName -> Rel a b
 > fromNumbersFull = fromPairs . fromNumbers
 
 Creates a special case of a relational point.
 In this case this is a relation that contains exactly one arrow.
 
 > point :: (Ord a, Ord b, Show a, Show b) => a -> b -> Rel a b
-> point x y = fromPairs [(x, [y])] (show (x, y))
+> point x y = fromPairs [(x, [y])] (Plain (show (x, y)))
 
 Pretty-prints a relation as a Boolean matrix.
 
 > instance (Show a, Show b, AllValues a, AllValues b, Ord a, Ord b) => Show (Rel a b) where
 > 
->     show rf =    prettify bvs
+>     show rf = show (symbolicName rf) ++ "\n" ++ prettify bvs
 >                     ++ intercalate "\n" [ unwords (show a : map (toBinary a) bvs) | a <- avs ]
 >         where toBinary a b | at rf a b = "X"
 >                            | otherwise = "-"
@@ -104,27 +196,27 @@ Constants
 The universal relation.
 
 > l :: (Ord a, Ord b, AllValues a, AllValues b) => Rel a b
-> l = fromPairs [(x, allValues)| x <- allValues] largestText
+> l = fromPairs [(x, allValues)| x <- allValues] (Nullary L)
 
 The empty relation.
 
 > o :: Rel a b
-> o = Rel empty emptyText
+> o = Rel empty (Nullary O)
 
 The identical relation.
 
 > i :: (Ord a, AllValues a) => Rel a a
-> i = fromPairs [(x, [x]) | x <- allValues] identityText
+> i = fromPairs [(x, [x]) | x <- allValues] (Nullary I)
 
 The first projection relation. Essentially, this is fst as a relation
 
 > pi1 :: (Ord a, Ord b, AllValues a, AllValues b) => Rel (a * b) a
-> pi1 = fromPairs [((x, y), [x]) | x <- allValues, y <- allValues] pi1Text
+> pi1 = fromPairs [((x, y), [x]) | x <- allValues, y <- allValues] (Nullary Pi1)
 
 The second projection relation. Essentially, this is snd as a relation.
 
 > pi2 :: (Ord a, Ord b, AllValues a, AllValues b) => Rel (a * b) b
-> pi2 = fromPairs [((x, y), [y]) | x <- allValues, y <- allValues] pi2Text
+> pi2 = fromPairs [((x, y), [y]) | x <- allValues, y <- allValues] (Nullary Pi2)
 
 Returns a powerset-like relation. The "quasi" is simply because p does not need to be a
 power type, but can be any type.
@@ -132,7 +224,7 @@ power type, but can be any type.
 > quasipower :: (AllValues a, AllValues p, Countable a, Countable p, Ord a, Ord p) => Rel a p
 > quasipower = 
 >   fromPairs [(x, [set | set <- allValues, asInteger set `testBit` asInt x]) | x <- allValues] 
->             quasipowerText
+>             (Plain quasipowerText)
 
 
 Relational operations
@@ -142,7 +234,7 @@ The union of two relations.
 
 > infixr 5 \/
 > (\/) :: (Ord a, Ord b) => Rel a b -> Rel a b -> Rel a b
-> Rel rm rn \/ Rel sm sn = Rel (unionWith union rm sm) (unwords [rn, unionSymbol, sn])
+> Rel rm rn \/ Rel sm sn = Rel (unionWith union rm sm) (Binary Cup rn sn)
 
 The union of a list of a relation, which is a folded binary union.
 
@@ -151,30 +243,30 @@ The union of a list of a relation, which is a folded binary union.
 
 The intersection of two relations.
 
-> infixr 6 /\
+> infixr 5 /\
 > (/\) :: (Ord a, Ord b) => Rel a b -> Rel a b -> Rel a b
 > Rel rm rn /\ Rel sm sn = Rel (intersectionWith intersection rm sm) 
->                              (unwords [rn, intersectionSymbol, sn])
+>                              (Binary Cap rn sn)
 
 The complement of a relation.
 
 > complement :: (Ord a, Ord b, AllValues a, AllValues b) => Rel a b -> Rel a b
 > complement (Rel rm rn) = Rel (differenceWith (Just <.> difference) (related l) rm)
->                              (parenPrepend complementText rn)
+>                              (Unary C rn)
 
 The transposition of a relation.
 
 > transposition :: (Ord a, Ord b) => Rel a b -> Rel b a
 > transposition rel = fromPairs [(y, [ x | x <- d, at rel x y ]) | y <- cod rel]
->                     (parenPrepend transpositionText (symbolicName rel))
+>                     (Unary T (symbolicName rel))
 >    where d = dom rel
 
 The composition of two relations.
 
-> infixr 7 .*.
+> infixr 6 .*.
 > (.*.) :: (Ord a, Ord b, Ord c, AllValues b) => Rel a b -> Rel b c -> Rel a c
 > f .*. g = fromPairs [ (a , [c | c <- codG, b <- allValues, at f a b && at g b c]) | a <- dom f]
->                     (unwords [symbolicName f, compositionSymbol, symbolicName g])
+>                     (Binary Comp (symbolicName f) (symbolicName g))
 >     where codG = cod g
 
 Parallel composition of relations.
@@ -183,7 +275,7 @@ where `f *** g = \(x, y) -> (f x, g y)`.
 
 > (.||.) :: (Ord a, Ord b, Ord c, Ord d) => Rel a b -> Rel c d -> Rel (a * c) (b * d)
 > f .||. g = fromPairs [((a, c), [(b, d) | b <- cf, d <- cg, at f a b && at g c d]) | a <- dom f, c <- dom g]
->                      (unwords [symbolicName f, parallelSymbol, symbolicName g])
+>                      (Binary ParComp (symbolicName f) (symbolicName g))
 >    where cf = cod f
 >          cg = cod g
 
@@ -212,7 +304,7 @@ we express it in concrete terms.
 
 > iotaQ :: (AllValues a, AllValues b, Ord a, Ord b) => Rel b Bot -> Rel a (b * a)
 > iotaQ q = fromPairs [(a, [(m, a) | m <- allValues, at q m Bot]) | a <- allValues]
->                     (concat [injectionText, "-", symbolicName q])
+>                     (Plain (concat [injectionText, "-", show (symbolicName q)]))
 
 The "theoretical" version of `iotaQ`
 
@@ -266,7 +358,7 @@ where none of the above cases matches
 
 > data RelFunction a b c d where
 >
->    Constant      :: String -> Rel c d -> RelFunction a b c d
+>    Constant      :: Rel c d -> RelFunction a b c d
 >    Id            :: RelFunction a b a b
 >    WithBinary    :: BinaryOp -> RelFunction a b c d -> RelFunction a b c d -> RelFunction a b c d
 >    Complement    :: RelFunction a b c d -> RelFunction a b c d
@@ -303,7 +395,7 @@ Abstract relational functions can be applied to relations.
 The apply function transforms the abstract function into a concrete one.
 
 > apply :: (Ord c, Ord d, AllValues c, AllValues d)  => RelFunction a b c d -> Rel a b -> Rel c d
-> apply (Constant  _ c)     _ = c
+> apply (Constant c)        _ = c
 > apply Id                  r = r
 > apply (WithBinary op f g) r = toFunction op (apply f r) (apply g r)
 > apply (Complement f)      r = complement (apply f r)
@@ -325,12 +417,20 @@ by simply using `apply (relmap phi) (isomorphic decomposeMe)`.
 > relmap :: (AllValues c, AllValues m, AllValues b, AllValues d, 
 >            Ord a, Ord b, Ord c, Ord d, Ord m, Show m ) =>
 >     RelFunction a b c d -> RelFunction a (m * b) c (m * d)
-> relmap (Constant name rel)   = Constant (name ++ pi2Text) (rel .*. transposition pi2)
+> relmap (Constant rel)        = Constant (rel .*. transposition pi2)
 > relmap Id                    = Id
 > relmap (WithBinary op rf sf) = WithBinary op (relmap rf) (relmap sf)
 > relmap (Complement rf)       = Complement (relmap rf)
 > relmap (LProd x  rf)         = LProd x (relmap rf)
 > relmap (RProd rf y)          = RProd (relmap rf) (i .||. y)
+> relmap (Transposition rf)    = Transposition (
+>                                   (Constant (pi1 .*. transposition pi1)
+>                                    ./\. 
+>                                   (pi2 .** relmap rf)) **. pi2 )
+> relmap (Prod rf sf)          = Prod (relmap rf)
+>                                     (Constant (pi1 .*. transposition pi1)
+>                                      ./\.
+>                                      pi2 .** relmap sf)
 > relmap rf                    = 
 >   None (\r -> bigsum (\q -> apply rf (r .*. transposition (iotaQ (point q Bot)))))
 
@@ -346,11 +446,10 @@ present relational functions in different text formats.
 
 > unionText, intersectionText, compositionText, transpositionText, constantText,
 >  idText, emptyText, largestText, identityText, quasipowerText,
->  unionSymbol, intersectionSymbol, complementText, compositionSymbol,
->  parallelSymbol, injectionText :: String
-> unionText          = ".\\/."
-> intersectionText   = "./\\."
-> compositionText    = ".**."
+>  complementText, parallelSymbol, injectionText :: String
+> unionText          = "\\/"
+> intersectionText   = "/\\"
+> compositionText    = ".*."
 > transpositionText  = "transpose"
 > constantText       = "const"
 > idText             = "id"
@@ -358,32 +457,159 @@ present relational functions in different text formats.
 > largestText        = "L"
 > identityText       = "I"
 > quasipowerText     = "M"
-> unionSymbol        = "\\/"
-> intersectionSymbol = "/\\"
 > complementText     = "complement"
-> compositionSymbol  = ".*."
-> parallelSymbol     = ".||."
+> parallelSymbol     = "||"
 > injectionText      = "iota"
+
+> unionLatex, intersectionLatex, compositionLatex, transpositionLatex, constantLatex,
+>  idLatex, emptyLatex, largestLatex, identityLatex, pi1Latex, pi2Latex:: String
+> unionLatex         = "\\cup"
+> intersectionLatex  = "\\cap"
+> compositionLatex   = "\\cdot"
+> transpositionLatex = "^\\top"
+> constantLatex      = "\\mathsf{const}"
+> idLatex            = "\\mathrm{id}"
+> emptyLatex         = "\\mathsf O"
+> largestLatex       = "\\mathsf L"
+> identityLatex      = "\\mathsf I"
+> pi1Latex           = "\\pi_1"
+> pi2Latex           = "\\pi_2"
 
 > instance Show BinaryOp where
 >   show Union        = unionText
 >   show Intersection = intersectionText
 
 > parenPrepend :: String -> String -> String
-> parenPrepend pre text = concat [pre, showParen True (showString text) []]
+> parenPrepend pre text = concat [pre, addParens text]
+
+> addParens :: String -> String
+> addParens str = concat ["(", str, ")"]
+
+> mkFreeName :: [String] -> String
+> mkFreeName = addParens . unwords
 
 > isSimple :: RelFunction a b c d -> Bool
-> isSimple (Constant _ _) = True
-> isSimple Id             = True
-> isSimple _              = False
+> isSimple (Constant _) = True
+> isSimple Id           = True
+> isSimple _            = False
 
 > isComposite :: RelFunction a b c d -> Bool
 > isComposite = not . isSimple
 
+> space :: ShowS
+> space = showString " "
+
+> constProdPrec :: Int
+> constProdPrec = 6
+
+> binaryOpToLatex :: BinaryOp -> String
+> binaryOpToLatex Union        = unionLatex
+> binaryOpToLatex Intersection = intersectionLatex
+
+> toLatex :: RelFunction a b c d -> String
+> toLatex str = mkLatex 0 str []
+
+> mkLatex :: Int -> RelFunction a b c d -> ShowS
+> mkLatex _ (Constant rel)        = showString constantLatex
+>                                    . showLatexParen True
+>                                    (showString (relNameToLatex relName))
+>    where relName = symbolicName rel
+> mkLatex _ Id                    = showString idLatex
+> mkLatex p (WithBinary op rf sf) = showLatexParen (p > p')
+>                                             ( mkLatex p' rf 
+>                                              . space
+>                                              . showString (binaryOpToLatex op)
+>                                              . space
+>                                              . mkLatex p' sf )
+>     where p' = precOf op
+> mkLatex p (Complement rf)       =   showString "\\overline{" 
+>                                   . mkLatex p rf 
+>                                   . showString "}"
+> mkLatex p (Transposition rf)    =   showLatexParen (isComposite rf) (mkLatex p rf)
+>                                   . showString "^\\top"
+> mkLatex p (Prod rf sf)          =   mkLatex p rf
+>                                   . space
+>                                   . showString compositionLatex
+>                                   . space
+>                                   . mkLatex p sf 
+> mkLatex p (LProd r sf)          =   showLatexParen (p >= constProdPrec) 
+>                                        (  showString (relNameToLatex (symbolicName r)) 
+>                                         . space 
+>                                         . showString compositionLatex 
+>                                         . space
+>                                         . mkLatex constProdPrec sf )
+> mkLatex p (RProd rf s)          =   showLatexParen (p >= constProdPrec)
+>                                        (  mkLatex constProdPrec rf 
+>                                         . space 
+>                                         . showString compositionLatex
+>                                         . space 
+>                                         . showString (relNameToLatex (symbolicName s)))
+> mkLatex _ (None _)              = showString "\bot\bot\bot"
+
+> showLatexParen :: Bool -> ShowS -> ShowS
+> showLatexParen b s | b         = showString "\\left(" . s . showString "\\right)"
+>                    | otherwise = s
+
 > instance Show (RelFunction a b c d) where
->   showsPrec _ (Constant name _)   = showString name
->   showsPrec _ Id                  = showString idText
->   showsPrec p (WithBinary op r s) =   showParen (p > precOf op)
->                                     $ showsPrec p r . shows op . showsPrec p s
->   showsPrec p (Complement r)      = showParen (isComposite r) (showsPrec p r)
->   
+>   showsPrec _ (Constant rel)        = shows (symbolicName rel)
+>   showsPrec _ Id                    = showString idText
+>   showsPrec p (WithBinary op rf sf) =   showParen (p > p')
+>                                        ( showsPrec p' rf 
+>                                          . space 
+>                                          . shows op 
+>                                          . space
+>                                          . showsPrec p' sf )
+>      where p' = precOf op        
+>   showsPrec p (Complement rf)       =   showString complementText 
+>                                       . space 
+>                                       . showParen (isComposite rf) (showsPrec p rf)
+>   showsPrec p (Transposition rf)    =   showString transpositionText 
+>                                       . space 
+>                                       . showParen (isComposite rf) (showsPrec p rf)
+>   showsPrec p (Prod rf sf)          =   showsPrec p rf 
+>                                       . space 
+>                                       . showString compositionText 
+>                                       . space
+>                                       . showsPrec p sf
+>   showsPrec p (LProd r sf)          =   showParen (p >= constProdPrec) 
+>                                        (  shows (symbolicName r) 
+>                                         . space 
+>                                         . showString compositionText 
+>                                         . space
+>                                         . showsPrec constProdPrec sf )
+>   showsPrec p (RProd rf s)          =   showParen (p >= constProdPrec)
+>                                        (  showsPrec constProdPrec rf 
+>                                         . space 
+>                                         . showString compositionText
+>                                         . space 
+>                                         . shows (symbolicName s) )
+>   showsPrec _ (None _)              = showString "Unshowable function."
+
+> data FunctionCapsule = DC { constFun :: RelName -> ShowS,
+>                             identFun :: ShowS,
+>                             binFun   :: Bool -> BinaryOp -> ShowS -> ShowS -> ShowS,
+>                             complFun :: Bool -> ShowS -> ShowS,
+>                             transFun :: Bool -> ShowS -> ShowS,
+>                             prodFun  :: ShowS -> ShowS -> ShowS,
+>                             lprodFun :: Bool -> RelName -> ShowS -> ShowS,
+>                             rprodFun :: Bool -> ShowS -> RelName -> ShowS} 
+
+> toStringWith :: FunctionCapsule
+>              -> Int -> RelFunction a b c d -> ShowS
+> toStringWith c _ (Constant rel)         = constFun c (symbolicName rel)
+> toStringWith c _ Id                     = identFun c
+> toStringWith c p (WithBinary bop rf sf) = binFun c (p > p') 
+>                                                  bop
+>                                                  (toStringWith c p' rf)
+>                                                  (toStringWith c p' sf)
+>       where p' = precOf bop
+> toStringWith c p (Complement rf)        = complFun c (isComposite rf) (toStringWith c p rf)
+> toStringWith c p (Transposition rf)     = transFun c (isComposite rf) (toStringWith c p rf)
+> toStringWith c p (Prod rf sf)           = prodFun c (toStringWith c p rf) (toStringWith c p sf)
+> toStringWith c p (LProd x rf)           = lprodFun c (p >= constProdPrec) 
+>                                                      (symbolicName x)
+>                                                      (toStringWith c (min p constProdPrec) rf)
+> toStringWith c p (RProd rf y)           = rprodFun c (p >= constProdPrec)
+>                                                      (toStringWith c (min p constProdPrec) rf)
+>                                                      (symbolicName y)
+> toStringWith _ _ (None _)               = showString "Unshowable function."
