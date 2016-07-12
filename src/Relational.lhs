@@ -1,6 +1,37 @@
-> {-# Language GADTs, ScopedTypeVariables, TypeOperators #-}
+> {-# Language GADTs, ScopedTypeVariables, TypeOperators, ExplicitNamespaces #-}
 
-> module Relational where
+> module Relational (
+>   RelFunction ( .. ),
+>   Rel ( .. ),
+>   RelName ( .. ),
+>   relmap,
+>   apply,
+>   toLatex,
+>   fromNumbers,
+>   fromNumbersFull,
+>   fromPairs,
+>   relNameToLatex,
+>   
+>   -- * relational combinators
+>   point,
+>   i, o, l, pi1, pi2,
+>   quasipower,
+>   
+>   (\/), bigunion,
+>   (/\),
+>   complement,
+>   transposition,
+>   (.||.),
+>   (.*.),
+>   
+>   -- * operations on relational functions
+>   
+>   (.\/.), (./\.), (.**), (**.), (.**.),
+>   isomorphic, isomorphic',
+>   
+>   -- * Miscellaneous
+>   type (*)
+>   ) where
 
 > import Control.Arrow           ( second, (&&&), (***) )
 > import Data.Bits               ( testBit )
@@ -201,8 +232,8 @@ Pretty-prints a relation as a Boolean matrix.
 
 > instance (Show a, Show b, AllValues a, AllValues b, Ord a, Ord b) => Show (Rel a b) where
 > 
->     show rf = show (symbolicName rf) ++ "\n" ++ prettify bvs
->                     ++ intercalate "\n" [ unwords (show a : map (toBinary a) bvs) | a <- avs ]
+>     show rf = concat [show (symbolicName rf), "\n",  prettify bvs
+>                       , intercalate "\n" [ unwords (show a : map (toBinary a) bvs) | a <- avs ] ]
 >         where toBinary a b | at rf a b = "X"
 >                            | otherwise = "-"
 >               avs = allValues
