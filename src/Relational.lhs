@@ -65,11 +65,11 @@ undefined for values that have no association in the list.
 
 Names for binary relational operations
 
-> data BinNameOp = Cup | Cap | Comp | ParComp deriving ( Eq )
+> data BinaryNameOp = Cup | Cap | Comp | ParComp deriving ( Eq )
 
 Precedences of binary relational operations.
 
-> bnoPrec :: BinNameOp -> Int
+> bnoPrec :: BinaryNameOp -> Int
 > bnoPrec Cup     = 5
 > bnoPrec Cap     = 5
 > bnoPrec Comp    = 6
@@ -77,7 +77,7 @@ Precedences of binary relational operations.
 
 Printed (via show) names for binary relational operations.
 
-> bnoShow :: [(BinNameOp, String)]
+> bnoShow :: [(BinaryNameOp, String)]
 > bnoShow = [(Cup, unionText),
 >            (Cap, intersectionText),
 >            (Comp, compositionText),
@@ -85,18 +85,18 @@ Printed (via show) names for binary relational operations.
 
 LaTeX names for binary relational operations.
 
-> bnoLatex :: [(BinNameOp, String)]
+> bnoLatex :: [(BinaryNameOp, String)]
 > bnoLatex = [(Cup, unionLatex),
 >            (Cap, intersectionLatex),
 >            (Comp, compositionLatex),
 >            (ParComp, parallelSymbol)]
 
-> instance Show BinNameOp where
+> instance Show BinaryNameOp where
 >   show = fromList bnoShow
 
 Returns the LaTeX name of a binary relational operation.
 
-> bnoToLatex :: BinNameOp -> String
+> bnoToLatex :: BinaryNameOp -> String
 > bnoToLatex = fromList bnoLatex
 
 Unary relational operations.
@@ -145,7 +145,7 @@ Data type for the names of relations.
 Names are either a plain name or a combination of names with certaion relational operations.
 
 > data RelName = Plain String 
->              | Binary BinNameOp RelName RelName
+>              | Binary BinaryNameOp RelName RelName
 >              | Unary UnaryNameOp RelName
 >              | Nullary NullaryNameOp
 
@@ -158,41 +158,36 @@ Checks whether a name has no argument.
 
 Shows the name of a function given functions that can show n-ary operation with n <- [0,1,2].
 
-> showWith :: (BinNameOp -> ShowS -> ShowS -> ShowS)  -- showing binary operations
->          -> (UnaryNameOp   -> ShowS -> ShowS)       -- showing unary operations
->          -> (NullaryNameOp -> ShowS)                -- showing nullary operations
+> showWith :: (Bool -> BinaryNameOp -> ShowS -> ShowS -> ShowS)  -- showing binary operations
+>          -> (Bool -> UnaryNameOp   -> ShowS -> ShowS)          -- showing unary operations
+>          -> (NullaryNameOp -> ShowS)                           -- showing nullary operations
 >          -> Int -> RelName -> ShowS
-> showWith f2 f1 f0 = go where
->   go _ (Plain name)     = showString name
->   go p (Binary bop r s) = f2 bop (go p' r) (go p' s)
->     where p' = bnoPrec bop
->   go p (Unary uop r)    = f1 uop (go p r)
->   go _ (Nullary nop)    = f0 nop
+> showWith bshow ushow nshow = go where
+
+>  go _ (Plain name) = showString name
+>  go p (Binary bop r s) = bshow (p > bp) bop (go bp r) (go bp s)
+>    where bp = bnoPrec bop
+>  go _ (Unary uop r)    = ushow (isComplexName r) uop (go 0 r)
+>  go _ (Nullary nop)    = nshow nop
 
 > instance Show RelName where
->   showsPrec p (Plain name)     = showString name
->   showsPrec p (Binary bop r s) = showParen (p > bp) (
->                                      showsPrec bp r 
->                                    . space 
->                                    . shows bop 
->                                    . space 
->                                    . showsPrec bp s )
->    where bp = bnoPrec bop
->   showsPrec p (Unary uop r)    =   shows uop 
->                                  . space 
->                                  . showParen (isComplexName r) (showsPrec 0 r)
->   showsPrec _ (Nullary nop) = shows nop
-
+>   showsPrec = showWith (\b bop r s -> showParen b (r . space . shows bop . space . s))
+>                        (\b uop r -> shows uop . space . showParen b r)
+>                        shows
 
 Print the relational name as a LaTeX string.
 
 > relNameToLatex :: RelName -> String
-> relNameToLatex rn = showWith g f (showString . nnoToLatex) 0 rn []
->   where f C showsr = showString complLatex . inBraces showsr
->         f T showsr = inBraces (showLatexParen (not (isComplexName rn)) showsr) 
->                      . showString transpLatex
->         
->         g c r s = r . space . showString (bnoToLatex c) . space . s
+> relNameToLatex rn = showWith (\b bop r s -> showLatexParen b (
+>                                                 r 
+>                                               . space 
+>                                               . showString (bnoToLatex bop) 
+>                                               . space 
+>                                               . s))
+>                              unary
+>                              (showString . nnoToLatex) 0 rn ""
+>    where unary _ C r = showString complLatex . inBraces r
+>          unary b T r = inBraces (showLatexParen b r) . showString transpLatex
 
 Operations on the data type of relations
 ========================================
