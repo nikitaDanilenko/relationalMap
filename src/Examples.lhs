@@ -39,6 +39,11 @@
  
 > phiRestrict :: (Ord a, AllValues a) => Rel a a -> RelFunction a Bot a a
 > phiRestrict r = phiPartialIdentity .**. (r .** phiPartialIdentity)
+
+Maps a set (represented by a vector) to the Cartesian product of the set with itself.
+
+> phiSetPairs :: (Ord a, AllValues a) => RelFunction a Bot a a
+> phiSetPairs = Id .**. Transposition Id
  
 This function checks whether a set is transitive with respect to the supplied relation.
  
