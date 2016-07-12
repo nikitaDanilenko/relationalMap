@@ -20,13 +20,23 @@ Composition of functions with different arities: g <.> f :: x -> y -> z; (g <.> 
 > (<.>) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
 > (<.>) = (.) . (.)
 
+Unsafe version of a lookup operation.
+
 > fromLookup :: Eq a => a -> [(a, b)] -> b
 > fromLookup = fromMaybe undefined <.> lookup 
+
+Creates a function from an association list.
+Note that this function is unsafe in the sense that it yields
+undefined for values that have no association in the list.
 
 > fromList :: Eq a => [(a, b)] -> a -> b
 > fromList = flip fromLookup
 
+Names for binary relational operations
+
 > data BinNameOp = Cup | Cap | Comp | ParComp deriving ( Eq )
+
+Precedences of binary relational operations.
 
 > bnoPrec :: BinNameOp -> Int
 > bnoPrec Cup     = 5
@@ -34,11 +44,15 @@ Composition of functions with different arities: g <.> f :: x -> y -> z; (g <.> 
 > bnoPrec Comp    = 6
 > bnoPrec ParComp = 1
 
+Printed (via show) names for binary relational operations.
+
 > bnoShow :: [(BinNameOp, String)]
 > bnoShow = [(Cup, unionText),
 >            (Cap, intersectionText),
 >            (Comp, compositionText),
 >            (ParComp, parallelSymbol)]
+
+LaTeX names for binary relational operations.
 
 > bnoLatex :: [(BinNameOp, String)]
 > bnoLatex = [(Cup, unionLatex),
@@ -49,18 +63,28 @@ Composition of functions with different arities: g <.> f :: x -> y -> z; (g <.> 
 > instance Show BinNameOp where
 >   show = fromList bnoShow
 
+Returns the LaTeX name of a binary relational operation.
+
 > bnoToLatex :: BinNameOp -> String
 > bnoToLatex = fromList bnoLatex
 
+Unary relational operations.
+
 > data UnaryNameOp = T | C deriving ( Eq )
+
+Printed (via show) names for unary relational operations.
 
 > unoShow :: [(UnaryNameOp, String)]
 > unoShow = [(T, transpositionText), (C, complementText)]
 
 > instance Show UnaryNameOp where
 >   show = fromList unoShow
+
+Nullary relational operations, i.e. certain constants.
  
 > data NullaryNameOp = I | O | L | Pi1 | Pi2 deriving ( Eq )
+
+Printed (via show) names for nullary relational operations.
 
 > nnoShow :: [(NullaryNameOp, String)]
 > nnoShow = [(I, identityText),
@@ -68,6 +92,8 @@ Composition of functions with different arities: g <.> f :: x -> y -> z; (g <.> 
 >            (L, largestText),
 >            (Pi1, pi1Text),
 >            (Pi2, pi2Text)]  
+
+LaTeX names for nullary relational operations.
 
 > nnoLatex :: [(NullaryNameOp, String)]
 > nnoLatex = [(I, identityLatex),
@@ -79,21 +105,30 @@ Composition of functions with different arities: g <.> f :: x -> y -> z; (g <.> 
 > instance Show NullaryNameOp where
 >   show = fromList nnoShow
 
+Returns the LaTeX name of a nullary relational operation.
+
 > nnoToLatex :: NullaryNameOp -> String
 > nnoToLatex = fromList nnoLatex
+
+Data type for the names of relations.
+Names are either a plain name or a combination of names with certaion relational operations.
 
 > data RelName = Plain String 
 >              | Binary BinNameOp RelName RelName
 >              | Unary UnaryNameOp RelName
 >              | Nullary NullaryNameOp
 
+Checks whether a name has no argument.
+
 > isComplexName :: RelName -> Bool
 > isComplexName (Nullary _) = False
 > isComplexName _           = True
 
-> showWith :: (BinNameOp -> ShowS -> ShowS -> ShowS) 
->          -> (UnaryNameOp   -> ShowS -> ShowS)
->          -> (NullaryNameOp -> ShowS)
+Shows the name of a function given functions that can show n-ary operation with n <- [0,1,2].
+
+> showWith :: (BinNameOp -> ShowS -> ShowS -> ShowS)  -- showing binary operations
+>          -> (UnaryNameOp   -> ShowS -> ShowS)       -- showing unary operations
+>          -> (NullaryNameOp -> ShowS)                -- showing nullary operations
 >          -> Int -> RelName -> ShowS
 > showWith f2 f1 f0 = go where
 >   go _ (Plain name)     = showString name
@@ -103,14 +138,19 @@ Composition of functions with different arities: g <.> f :: x -> y -> z; (g <.> 
 >   go _ (Nullary nop)    = f0 nop
 
 > instance Show RelName where
->   showsPrec = showWith (\b r s -> showParen True (r . space . shows b . space . s)) (\uop r -> shows uop . space . r) shows
+>   showsPrec = showWith (\b r s -> showParen True (r . space . shows b . space . s)) 
+>                        (\uop r -> shows uop . space . r) 
+>                        shows
+
+Print the relational name as a LaTeX string.
 
 > relNameToLatex :: RelName -> String
 > relNameToLatex rn = showWith g f (showString . nnoToLatex) 0 rn []
->   where f C showsr = showString "\\overline{" . showsr . showString "}"
->         f T showsr = showLatexParen True showsr . showString "^\\top"
+>   where f C showsr = showString complLatex . inBraces showsr
+>         f T showsr = inBraces (showLatexParen (not (isComplexName rn)) showsr) 
+>                      . showString transpLatex
 >         
->         g c r s = showString "\\left(" . r . space . showString (bnoToLatex c) . space . s . showString "\\right)"
+>         g c r s = r . space . showString (bnoToLatex c) . space . s
 
 Operations on the data type of relations
 ========================================
@@ -344,8 +384,7 @@ This function assigns a precedence to the abstract operations.
 > precOf Union        = 4
 > precOf Intersection = 5
 
-The constructor `Constant` denotes a constant function, where the `String` value is its
-symbolic name and `Id` is the identical function.
+The constructor `Constant` denotes a constant function and `Id` is the identical function.
 The constructors `WithBinary op` and `Prod` denote the pointwise union, intersection
 and product of relational functions respectively.
 The constructors `LProd` and `RProd` denote the left and right multiplication with a
@@ -354,7 +393,6 @@ The `Complement` and `Transposition` constructors are the pointwise versions of
 the respective relational operations.
 Finally, the `None` constructor denotes the general case,
 where none of the above cases matches
-
 
 > data RelFunction a b c d where
 >
@@ -369,23 +407,33 @@ where none of the above cases matches
 >    Transposition :: RelFunction a b c d -> RelFunction a b d c
 >    None          :: (Rel a b -> Rel c d) -> RelFunction a b c d
 
-Infix variants of the costructors.
+Pointwise union of relational functions.
 
 > infixr 4 .\/.
 > (.\/.) :: RelFunction a b c d -> RelFunction a b c d -> RelFunction a b c d
 > (.\/.) = WithBinary Union
 
+Pointwise intersection of relational functions.
+
 > infixr 5 ./\.
 > (./\.) :: RelFunction a b c d -> RelFunction a b c d -> RelFunction a b c d
 > (./\.) = WithBinary Intersection
+
+Pointwise left-multiplication with a constant function.
+The first argument creates the constant function.
 
 > infixr 6 .**
 > (.**) :: (AllValues c, Ord c) => Rel e c -> RelFunction a b c d -> RelFunction a b e d
 > (.**) = LProd
 
+Pointwise right-multiplication with a constant function.
+The second argument creates the constant function.
+
 > infixr 6 **.
 > (**.) :: (AllValues d, Ord d) => RelFunction a b c d -> Rel d e -> RelFunction a b c e
 > (**.) = RProd
+
+Pointwise multiplication of relational functions.
 
 > infixr 7 .**.
 > (.**.) :: (AllValues d, Ord d) => RelFunction a b c d -> RelFunction a b d e -> RelFunction a b c e
@@ -440,13 +488,11 @@ Textual representation of relational functions
 In this section we provide functions and constants that can be used to
 present relational functions in different text formats.
 
-> pi1Text, pi2Text :: String
-> pi1Text = "pi1"
-> pi2Text = "pi2"
+Text variants of all operations and constants. 
 
 > unionText, intersectionText, compositionText, transpositionText, constantText,
 >  idText, emptyText, largestText, identityText, quasipowerText,
->  complementText, parallelSymbol, injectionText :: String
+>  complementText, parallelSymbol, injectionText, pi1Text, pi2Text :: String
 > unionText          = "\\/"
 > intersectionText   = "/\\"
 > compositionText    = ".*."
@@ -460,13 +506,21 @@ present relational functions in different text formats.
 > complementText     = "complement"
 > parallelSymbol     = "||"
 > injectionText      = "iota"
+> pi1Text            = "pi1"
+> pi2Text            = "pi2"
 
-> unionLatex, intersectionLatex, compositionLatex, transpositionLatex, constantLatex, transpLatex,
->  idLatex, emptyLatex, largestLatex, identityLatex, pi1Latex, pi2Latex :: String
-> unionLatex         = "\\sqcup"
-> intersectionLatex  = "\\sqcap"
-> compositionLatex   = "\\odot"
-> transpositionLatex = "^\\top"
+LaTeX variants of all operations and constants.
+
+> unionLatex, intersectionLatex,
+>   funionLatex, fintersectionLatex, compositionLatex, fcompositionLatex, complLatex, fcomplLatex,
+>   constantLatex, transpLatex, ftranspLatex, idLatex, emptyLatex, largestLatex, identityLatex, 
+>   pi1Latex, pi2Latex :: String
+> unionLatex         = "\\cup"
+> funionLatex        = "\\sqcup"
+> intersectionLatex  = "\\cap"
+> fintersectionLatex = "\\sqcap"
+> fcompositionLatex  = "\\odot"
+> compositionLatex   = "\\cdot"
 > constantLatex      = "\\mathsf{const}"
 > idLatex            = "\\mathrm{id}"
 > emptyLatex         = "\\mathsf O"
@@ -474,72 +528,93 @@ present relational functions in different text formats.
 > identityLatex      = "\\mathsf I"
 > pi1Latex           = "\\pi_1"
 > pi2Latex           = "\\pi_2"
-> complLatex         = "\\mathsf{compl}"
-> transpLatex        = "\\mathsf{transp}"
+> complLatex         = "\\overline"
+> fcomplLatex        = "\\mathsf{compl}"
+> transpLatex        = "^\\top"
+> ftranspLatex       = "\\mathsf{transp}"
+
+Encloses an argument into a given left and right text.
+
+> enclosed :: String -> String -> ShowS -> ShowS
+> enclosed left right arg = showString left . arg . showString right
+
+Puts an argument in additional braces.
 
 > inBraces :: ShowS -> ShowS
-> inBraces r = showString "{" . r . showString "}"
+> inBraces = enclosed "{" "}"
+
+Puts an argument into LaTeX parentheses.
 
 > inParens :: ShowS -> ShowS
-> inParens r = showString "\\left(" . r . showString "\\right)"
+> inParens = enclosed "\\left(" "\\right)"
 
 > instance Show BinaryOp where
 >   show Union        = unionText
 >   show Intersection = intersectionText
 
-> parenPrepend :: String -> String -> String
-> parenPrepend pre text = concat [pre, addParens text]
-
-> addParens :: String -> String
-> addParens str = concat ["(", str, ")"]
-
-> mkFreeName :: [String] -> String
-> mkFreeName = addParens . unwords
+Checks whether a relational function is simple, i.e. a constant or identity function.
 
 > isSimple :: RelFunction a b c d -> Bool
 > isSimple (Constant _) = True
 > isSimple Id           = True
 > isSimple _            = False
 
+Negation of `isSimple`.
+
 > isComposite :: RelFunction a b c d -> Bool
 > isComposite = not . isSimple
+
+A space as a function.
 
 > space :: ShowS
 > space = showString " "
 
+Precedence of the operation of multiplying a function with a constant
+
 > constProdPrec :: Int
 > constProdPrec = 6
 
+Maps a binary operation of relational functions to a LaTeX string.
+
 > binaryOpToLatex :: BinaryOp -> String
-> binaryOpToLatex Union        = unionLatex
-> binaryOpToLatex Intersection = intersectionLatex
+> binaryOpToLatex Union        = funionLatex
+> binaryOpToLatex Intersection = fintersectionLatex
+
+Maps a relational function to a LaTeX representation suited for pasting into a document.
+The representation is inductive wherever possible,
+thus if the function consists of no application of the `None` constructor,
+the result is a closed term without explicit sums as well.
 
 > toLatex :: RelFunction a b c d -> String
 > toLatex str = mkLatex 0 str []
+
+The actual function that shows a LaTeX version of a relational function.
 
 > mkLatex :: Int -> RelFunction a b c d -> ShowS
 > mkLatex = toStringWith (DC con (showString idLatex) bin com tra pro lpr rpr) where
 >   con _ rel      = showConstant rel
 >   bin b op rf sf = showLatexParen b (rf . space . showString (binaryOpToLatex op) . space . sf)
->   com _ rf       = showString complLatex . inParens rf
->   tra _ rf       = showString transpLatex . inParens rf
->   pro rf sf      = rf . space . showString compositionLatex . space . sf
+>   com _ rf       = showString fcomplLatex . inParens rf
+>   tra _ rf       = showString ftranspLatex . inParens rf
+>   pro rf sf      = rf . space . showString fcompositionLatex . space . sf
 >   lpr b x rf     = showLatexParen b (  showConstant x
 >                                      . space 
->                                      . showString compositionLatex 
+>                                      . showString fcompositionLatex 
 >                                      . space
 >                                      . rf )
 >   rpr b rf y     = showLatexParen b (  rf
 >                                      . space 
->                                      . showString compositionLatex 
+>                                      . showString fcompositionLatex 
 >                                      . space
 >                                      . showConstant y )
 >   
 >   showConstant rel = showString constantLatex . inParens (showString (relNameToLatex rel))
 
+Parentheses are shown if and only if the Boolean argument is True.
+
 > showLatexParen :: Bool -> ShowS -> ShowS
-> showLatexParen b s | b         = inParens s
->                    | otherwise = s
+> showLatexParen b | b         = inParens 
+>                  | otherwise = id
 
 > instance Show (RelFunction a b c d) where
 >   showsPrec = toStringWith (DC (const shows) (showString idText) bin com tra pro lpr rpr) where
@@ -561,6 +636,8 @@ into a formatted string.
 >                             prodFun  :: ShowS -> ShowS -> ShowS,
 >                             lprodFun :: Bool -> RelName -> ShowS -> ShowS,
 >                             rprodFun :: Bool -> ShowS -> RelName -> ShowS} 
+
+This function takes care of proper parentheses for relational functions.
 
 > toStringWith :: FunctionCapsule
 >              -> Int -> RelFunction a b c d -> ShowS
