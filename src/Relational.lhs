@@ -152,6 +152,7 @@ Names are either a plain name or a combination of names with certaion relational
 Checks whether a name has no argument.
 
 > isComplexName :: RelName -> Bool
+> isComplexName (Plain _)   = False
 > isComplexName (Nullary _) = False
 > isComplexName _           = True
 
@@ -169,9 +170,19 @@ Shows the name of a function given functions that can show n-ary operation with 
 >   go _ (Nullary nop)    = f0 nop
 
 > instance Show RelName where
->   showsPrec = showWith (\b r s -> showParen True (r . space . shows b . space . s)) 
->                        (\uop r -> shows uop . space . r) 
->                        shows
+>   showsPrec p (Plain name)     = showString name
+>   showsPrec p (Binary bop r s) = showParen (p > bp) (
+>                                      showsPrec bp r 
+>                                    . space 
+>                                    . shows bop 
+>                                    . space 
+>                                    . showsPrec bp s )
+>    where bp = bnoPrec bop
+>   showsPrec p (Unary uop r)    =   shows uop 
+>                                  . space 
+>                                  . showParen (isComplexName r) (showsPrec 0 r)
+>   showsPrec _ (Nullary nop) = shows nop
+
 
 Print the relational name as a LaTeX string.
 
