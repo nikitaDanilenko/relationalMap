@@ -461,11 +461,11 @@ present relational functions in different text formats.
 > parallelSymbol     = "||"
 > injectionText      = "iota"
 
-> unionLatex, intersectionLatex, compositionLatex, transpositionLatex, constantLatex,
->  idLatex, emptyLatex, largestLatex, identityLatex, pi1Latex, pi2Latex:: String
-> unionLatex         = "\\cup"
-> intersectionLatex  = "\\cap"
-> compositionLatex   = "\\cdot"
+> unionLatex, intersectionLatex, compositionLatex, transpositionLatex, constantLatex, transpLatex,
+>  idLatex, emptyLatex, largestLatex, identityLatex, pi1Latex, pi2Latex :: String
+> unionLatex         = "\\sqcup"
+> intersectionLatex  = "\\sqcap"
+> compositionLatex   = "\\odot"
 > transpositionLatex = "^\\top"
 > constantLatex      = "\\mathsf{const}"
 > idLatex            = "\\mathrm{id}"
@@ -474,6 +474,14 @@ present relational functions in different text formats.
 > identityLatex      = "\\mathsf I"
 > pi1Latex           = "\\pi_1"
 > pi2Latex           = "\\pi_2"
+> complLatex         = "\\mathsf{compl}"
+> transpLatex        = "\\mathsf{transp}"
+
+> inBraces :: ShowS -> ShowS
+> inBraces r = showString "{" . r . showString "}"
+
+> inParens :: ShowS -> ShowS
+> inParens r = showString "\\left(" . r . showString "\\right)"
 
 > instance Show BinaryOp where
 >   show Union        = unionText
@@ -513,8 +521,8 @@ present relational functions in different text formats.
 > mkLatex = toStringWith (DC con (showString idLatex) bin com tra pro lpr rpr) where
 >   con b rel      = showString constantLatex . showLatexParen b (showString (relNameToLatex rel))
 >   bin b op rf sf = showLatexParen b (rf . space . showString (binaryOpToLatex op) . space . sf)
->   com _ rf       = showString "\\overline{" . rf . showString "}"
->   tra b rf       = showLatexParen b (rf . showString "^\\top")
+>   com _ rf       = showString complLatex . inParens rf
+>   tra _ rf       = showString transpLatex . inParens rf
 >   pro rf sf      = rf . space . showString compositionLatex . space . sf
 >   lpr b x rf     = showLatexParen b (  showString (relNameToLatex x) 
 >                                      . space 
@@ -528,7 +536,7 @@ present relational functions in different text formats.
 >                                      . showString (relNameToLatex y) )
 
 > showLatexParen :: Bool -> ShowS -> ShowS
-> showLatexParen b s | b         = showString "\\left(" . s . showString "\\right)"
+> showLatexParen b s | b         = inParens s
 >                    | otherwise = s
 
 > instance Show (RelFunction a b c d) where
