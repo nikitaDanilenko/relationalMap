@@ -519,12 +519,12 @@ present relational functions in different text formats.
 
 > mkLatex :: Int -> RelFunction a b c d -> ShowS
 > mkLatex = toStringWith (DC con (showString idLatex) bin com tra pro lpr rpr) where
->   con b rel      = showString constantLatex . showLatexParen b (showString (relNameToLatex rel))
+>   con _ rel      = showConstant rel
 >   bin b op rf sf = showLatexParen b (rf . space . showString (binaryOpToLatex op) . space . sf)
 >   com _ rf       = showString complLatex . inParens rf
 >   tra _ rf       = showString transpLatex . inParens rf
 >   pro rf sf      = rf . space . showString compositionLatex . space . sf
->   lpr b x rf     = showLatexParen b (  showString (relNameToLatex x) 
+>   lpr b x rf     = showLatexParen b (  showConstant x
 >                                      . space 
 >                                      . showString compositionLatex 
 >                                      . space
@@ -533,7 +533,9 @@ present relational functions in different text formats.
 >                                      . space 
 >                                      . showString compositionLatex 
 >                                      . space
->                                      . showString (relNameToLatex y) )
+>                                      . showConstant y )
+>   
+>   showConstant rel = showString constantLatex . inParens (showString (relNameToLatex rel))
 
 > showLatexParen :: Bool -> ShowS -> ShowS
 > showLatexParen b s | b         = inParens s
