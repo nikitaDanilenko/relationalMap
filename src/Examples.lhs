@@ -1,36 +1,12 @@
-> {-# Language TemplateHaskell, TypeOperators, DeriveDataTypeable #-}
+> {-# Language TypeOperators #-}
 
 > module Examples where
 
-> import Data.List       ( genericIndex )
 > import Data.Typeable   ( Typeable )
-
-> import CountingFinite  ( InverseCountable ( intTo ),
->                          Countable ( asInt, asInteger ), 
->                          AllValues ( allValues ),
->                          Bot ( Bot ) )
-> import FiniteTypes     ( mkFinite, genericIndex )
+>
+> import CountingFinite ( AllValues, Bot )
+> import FiniteTypes     
 > import Relational
-
-
-> $(mkFinite 2)
-> $(mkFinite 3)
-> $(mkFinite 4)
-> $(mkFinite 5)
-> $(mkFinite 6)
-> $(mkFinite 7)
-> $(mkFinite 8)
-> $(mkFinite 10)
-> $(mkFinite 11)
-> $(mkFinite 12)
-> $(mkFinite 16)
-> $(mkFinite 32)
-> $(mkFinite 64)
-> $(mkFinite 128)
-> $(mkFinite 256)
-> $(mkFinite 1024)
-> -- $(mkFinite 2048)
-> -- $(mkFinite 4096)
 
 An exemplary empty relation called "A".
 
