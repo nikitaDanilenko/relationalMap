@@ -40,7 +40,8 @@
 >                                  mapKeys, keys, elems, difference, differenceWith )
 > import qualified Data.Map as M ( lookup, fromList, toList )
 > import Data.Maybe              ( fromJust, isJust, fromMaybe )
-
+> import Data.Typeable           ( Typeable, typeOf )
+>
 > import CountingFinite          ( InverseCountable ( intTo ),
 >                                  Countable ( asInt, asInteger ), 
 >                                  AllValues ( allValues ),
@@ -113,33 +114,29 @@ Printed (via show) names for unary relational operations.
 
 Nullary relational operations, i.e. certain constants.
  
-> data NullaryNameOp = I | O | L | Pi1 | Pi2 deriving ( Eq )
+> data NullaryNameOp = I String | O String | L String | Pi1 String | Pi2 String deriving ( Eq )
 
-Printed (via show) names for nullary relational operations.
-
-> nnoShow :: [(NullaryNameOp, String)]
-> nnoShow = [(I, identityText),
->            (O, emptyText),
->            (L, largestText),
->            (Pi1, pi1Text),
->            (Pi2, pi2Text)]  
-
-LaTeX names for nullary relational operations.
-
-> nnoLatex :: [(NullaryNameOp, String)]
-> nnoLatex = [(I, identityLatex),
->             (O, emptyLatex),
->             (L, largestLatex),
->             (Pi1, pi1Latex),
->             (Pi2, pi2Latex)]
+> inParensText :: ShowS -> ShowS
+> inParensText s = showString "(" . s . showString ")"
 
 > instance Show NullaryNameOp where
->   show = fromList nnoShow
+>   show (I t)   = identityText ++ inParensText (showString t) ""
+>   show (O t)   = emptyText ++ inParensText (showString t) ""
+>   show (L t)   = largestText ++ inParensText (showString t) ""
+>   show (Pi1 t) = pi1Text ++ inParensText (showString t) ""
+>   show (Pi2 t) = pi2Text ++ inParensText (showString t) ""
+
+> latexSubscript :: String -> String
+> latexSubscript s = concat ["_{", s, "}"]
 
 Returns the LaTeX name of a nullary relational operation.
 
 > nnoToLatex :: NullaryNameOp -> String
-> nnoToLatex = fromList nnoLatex
+> nnoToLatex (I t) = concat [identityLatex, latexSubscript t]
+> nnoToLatex (O t) = concat [emptyLatex, latexSubscript t]
+> nnoToLatex (L t) = concat [largestLatex, latexSubscript t]
+> nnoToLatex (Pi1 t) = concat [pi1Latex,  inParens (showString t) ""]
+> nnoToLatex (Pi2 t) = concat [pi2Latex, inParens (showString t) ""]
 
 Data type for the names of relations.
 Names are either a plain name or a combination of names with certaion relational operations.
@@ -270,30 +267,42 @@ Prettier product type.
 Constants
 ---------
 
+> typeOf1 :: Typeable a => a -> String
+> typeOf1 = show . typeOf
+
+> pairType :: String -> String -> String
+> pairType left right = concat [left, ", ", right]
+
+> typeOf2 :: (Typeable a, Typeable b) => a -> b -> String
+> typeOf2 x y = pairType (typeOf1 x) (typeOf1 y)
+
 The universal relation.
 
-> l :: (Ord a, Ord b, AllValues a, AllValues b) => Rel a b
-> l = fromPairs [(x, allValues)| x <- allValues] (Nullary L)
+> l :: forall a b . (Typeable a, Typeable b, Ord a, Ord b, AllValues a, AllValues b) => Rel a b
+> l = fromPairs [(x, allValues)| x <- allValues] 
+>               (Nullary (L (typeOf2 (undefined :: a) (undefined :: b))))
 
 The empty relation.
 
-> o :: Rel a b
-> o = Rel empty (Nullary O)
+> o :: forall a b . (Typeable a, Typeable b, AllValues a, AllValues b) => Rel a b
+> o = Rel empty (Nullary (O (typeOf2 (undefined :: a) (undefined :: b))))
 
 The identical relation.
 
-> i :: (Ord a, AllValues a) => Rel a a
-> i = fromPairs [(x, [x]) | x <- allValues] (Nullary I)
+> i :: forall a . (Typeable a, Ord a, AllValues a) => Rel a a
+> i = fromPairs [(x, [x]) | x <- allValues] (Nullary (I (typeOf1 (undefined :: a))))
 
-The first projection relation. Essentially, this is fst as a relation
+The first projection relation. Essentially, this is fst as a relation.
 
-> pi1 :: (Ord a, Ord b, AllValues a, AllValues b) => Rel (a * b) a
-> pi1 = fromPairs [((x, y), [x]) | x <- allValues, y <- allValues] (Nullary Pi1)
+> pi1 :: forall a b . (Ord a, Ord b, AllValues a, AllValues b, Typeable a, Typeable b) => Rel (a * b) a
+> pi1 = fromPairs [((x, y), [x]) | x <- allValues, y <- allValues] 
+>                 (Nullary (Pi1 (typeOf2 (undefined :: a) (undefined :: b))))
 
 The second projection relation. Essentially, this is snd as a relation.
 
-> pi2 :: (Ord a, Ord b, AllValues a, AllValues b) => Rel (a * b) b
-> pi2 = fromPairs [((x, y), [y]) | x <- allValues, y <- allValues] (Nullary Pi2)
+> pi2 :: forall a b . (Ord a, Ord b, AllValues a, AllValues b, Typeable a, Typeable b) => Rel (a * b) b
+> pi2 = fromPairs [((x, y), [y]) | x <- allValues, y <- allValues] 
+>                 (Nullary (Pi2 (typeOf2 (undefined :: a) (undefined :: b))))
 
 Returns a powerset-like relation. The "quasi" is simply because p does not need to be a
 power type, but can be any type.
@@ -315,7 +324,7 @@ The union of two relations.
 
 The union of a list of a relation, which is a folded binary union.
 
-> bigunion :: (Ord a, Ord b) => [Rel a b] -> Rel a b
+> bigunion :: (Typeable a, Typeable b, AllValues a, AllValues b, Ord a, Ord b) => [Rel a b] -> Rel a b
 > bigunion = foldr (\/) o
 
 The intersection of two relations.
@@ -327,7 +336,7 @@ The intersection of two relations.
 
 The complement of a relation.
 
-> complement :: (Ord a, Ord b, AllValues a, AllValues b) => Rel a b -> Rel a b
+> complement :: (Typeable a, Typeable b, Ord a, Ord b, AllValues a, AllValues b) => Rel a b -> Rel a b
 > complement (Rel rm rn) = Rel (differenceWith (Just <.> difference) (related l) rm)
 >                              (Unary C rn)
 
@@ -385,14 +394,16 @@ we express it in concrete terms.
 
 The "theoretical" version of `iotaQ`
 
-> iotaQPure :: (AllValues a, AllValues b, Ord a, Ord b) => Rel b Bot -> Rel a (b * a)
+> iotaQPure :: (Typeable a, Typeable b, AllValues a, AllValues b, Ord a, Ord b) => Rel b Bot -> Rel a (b * a)
 > iotaQPure q = transposition (pi2 /\ pi1 .*. q .*. l)
 
 Injections can be used to express the sum of several relations by placing
 relations at different blocks.
 The `bigsum` function takes a sum generator and applies it to all points of a type.
 
-> bigsum :: (Ord a, Ord b, Ord m, AllValues b, AllValues m, Show m) => (m -> Rel a b) -> Rel a (m * b)
+> bigsum :: (Typeable a, Typeable b, Typeable m,
+>            Ord a, Ord b, Ord m, 
+>            AllValues a, AllValues b, AllValues m, Show m) => (m -> Rel a b) -> Rel a (m * b)
 > bigsum r = bigunion (map (\q -> (r q) .*. iotaQ (point q Bot)) allValues)
 
 Functions that map relations to relations
@@ -437,9 +448,9 @@ where none of the above cases matches
 >    Id            :: RelFunction a b a b
 >    WithBinary    :: BinaryOp -> RelFunction a b c d -> RelFunction a b c d -> RelFunction a b c d
 >    Complement    :: RelFunction a b c d -> RelFunction a b c d
->    LProd         :: (AllValues c, Ord c) => Rel e c -> RelFunction a b c d -> RelFunction a b e d
->    RProd         :: (AllValues d, Ord d) => RelFunction a b c d -> Rel d e -> RelFunction a b c e
->    Prod          :: (AllValues d, Ord d) => RelFunction a b c d -> RelFunction a b d e
+>    LProd         :: (Typeable c, AllValues c, Ord c) => Rel e c -> RelFunction a b c d -> RelFunction a b e d
+>    RProd         :: (Typeable d, AllValues d, Ord d) => RelFunction a b c d -> Rel d e -> RelFunction a b c e
+>    Prod          :: (Typeable d, AllValues d, Ord d) => RelFunction a b c d -> RelFunction a b d e
 >                                                                 -> RelFunction a b c e
 >    Transposition :: RelFunction a b c d -> RelFunction a b d c
 >    None          :: (Rel a b -> Rel c d) -> RelFunction a b c d
@@ -460,26 +471,26 @@ Pointwise left-multiplication with a constant function.
 The first argument creates the constant function.
 
 > infixr 6 .**
-> (.**) :: (AllValues c, Ord c) => Rel e c -> RelFunction a b c d -> RelFunction a b e d
+> (.**) :: (Typeable c, AllValues c, Ord c) => Rel e c -> RelFunction a b c d -> RelFunction a b e d
 > (.**) = LProd
 
 Pointwise right-multiplication with a constant function.
 The second argument creates the constant function.
 
 > infixr 6 **.
-> (**.) :: (AllValues d, Ord d) => RelFunction a b c d -> Rel d e -> RelFunction a b c e
+> (**.) :: (Typeable d, AllValues d, Ord d) => RelFunction a b c d -> Rel d e -> RelFunction a b c e
 > (**.) = RProd
 
 Pointwise multiplication of relational functions.
 
 > infixr 7 .**.
-> (.**.) :: (AllValues d, Ord d) => RelFunction a b c d -> RelFunction a b d e -> RelFunction a b c e
+> (.**.) :: (Typeable d, AllValues d, Ord d) => RelFunction a b c d -> RelFunction a b d e -> RelFunction a b c e
 > (.**.) = Prod
 
 Abstract relational functions can be applied to relations.
 The apply function transforms the abstract function into a concrete one.
 
-> apply :: (Ord c, Ord d, AllValues c, AllValues d)  => RelFunction a b c d -> Rel a b -> Rel c d
+> apply :: (Typeable c, Typeable d, Ord c, Ord d, AllValues c, AllValues d)  => RelFunction a b c d -> Rel a b -> Rel c d
 > apply (Constant c)        _ = c
 > apply Id                  r = r
 > apply (WithBinary op f g) r = toFunction op (apply f r) (apply g r)
@@ -499,8 +510,10 @@ because we have not expressed that `b * Bot` is the same as `b`.
 This is where the function `isomorphic` can be used to obtain the result
 by simply using `apply (relmap phi) (isomorphic decomposeMe)`.
 
-> relmap :: (AllValues c, AllValues m, AllValues b, AllValues d, 
->            Ord a, Ord b, Ord c, Ord d, Ord m, Show m ) =>
+> relmap :: (AllValues b, AllValues d, AllValues c, AllValues m, 
+>            Ord a, Ord b, Ord c, Ord d, Ord m, 
+>            Typeable m, Typeable c, Typeable d,
+>            Show m ) =>
 >     RelFunction a b c d -> RelFunction a (m * b) c (m * d)
 > relmap (Constant rel)        = Constant (rel .*. transposition pi2)
 > relmap Id                    = Id
@@ -530,9 +543,9 @@ Text variants of all operations and constants.
 > unionText, intersectionText, compositionText, transpositionText, constantText,
 >  idText, emptyText, largestText, identityText, quasipowerText,
 >  complementText, parallelSymbol, injectionText, pi1Text, pi2Text :: String
-> unionText          = "\\/"
-> intersectionText   = "/\\"
-> compositionText    = ".*."
+> unionText          = "|_|"
+> intersectionText   = "|\"|"
+> compositionText    = ":*:"
 > transpositionText  = "transpose"
 > constantText       = "const"
 > idText             = "id"
@@ -659,8 +672,18 @@ Parentheses are shown if and only if the Boolean argument is True.
 >     com b r      = showString complementText . space . showParen b r
 >     tra b r      = showString transpositionText . space . showParen b r
 >     pro r s      = r . space . showString compositionText . space . s
->     lpr b x r    = showParen b (shows x . space . showString compositionText . space . r)
->     rpr b r y    = showParen b (r . space . showString compositionText . space . shows y)
+>     lpr b x r    = showParen b (  showString constantText 
+>                                  . showParen True (shows x) 
+>                                  . space 
+>                                  . showString compositionText 
+>                                  . space 
+>                                  . r)
+>     rpr b r y    = showParen b (   r 
+>                                  . space 
+>                                  . showString compositionText 
+>                                  . space 
+>                                  . showString constantText 
+>                                  . showParen True (shows y))
 
 A capsule containing all functions necessary to transform an abstract relational function
 into a formatted string.
