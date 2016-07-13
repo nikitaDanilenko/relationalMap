@@ -1,8 +1,8 @@
 > {-# LANGUAGE TemplateHaskell #-}
 >
-> module FiniteTypes ( mkFinite, genericIndex ) where
+> module MkFiniteTypes ( mkFinite, mkAlphabetic ) where
 > 
-> import Data.List           ( genericIndex )
+> import Data.Char           ( toUpper )
 > 
 > import Language.Haskell.TH ( Q, Dec, Name, Type, Body, Con ( .. ), Exp, mkName, cxt, normalB,
 >                              normalC, infixApp, conT, litE, stringL, clause, funD, arithSeqE,
@@ -34,6 +34,25 @@ Additionally this data type is equipped with instances of `Bounded`,
 >     where name     = 'N' : show n
 >           fullName = mkName name
 >           conss    = map (\i -> normalC (mkName (name ++ "C" ++ show i)) []) [0 .. n - 1]
+
+> mkAlphabetic :: Char -> Q [Dec]
+> mkAlphabetic c = sequence
+>   [dataD (cxt [])
+>          fullName
+>          []
+>          [normalC (mkName name) []]
+>          [mkName "Bounded",
+>           mkName "Eq",
+>           mkName "Enum",
+>           mkName "Ord",
+>           mkName "Read",
+>           mkName "Show",
+>           mkName "Typeable"],
+>    mkFiniteAllValuesInstance fullName,
+>    mkFiniteCountableInstance fullName,
+>    mkFiniteInverseCountableInstance fullName]
+>   where name     = [toUpper c]
+>         fullName = mkName name
 
 This function extracts the name of a constructor.
 
