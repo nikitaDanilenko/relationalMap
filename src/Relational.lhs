@@ -677,13 +677,13 @@ Parentheses are shown if and only if the Boolean argument is True.
 >                                  . space 
 >                                  . showString compositionText 
 >                                  . space 
->                                  . r)
+>                                  . r )
 >     rpr b r y    = showParen b (   r 
 >                                  . space 
 >                                  . showString compositionText 
 >                                  . space 
 >                                  . showString constantText 
->                                  . showParen True (shows y))
+>                                  . showParen True (shows y) )
 
 A capsule containing all functions necessary to transform an abstract relational function
 into a formatted string.
