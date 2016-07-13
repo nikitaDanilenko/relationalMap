@@ -1,12 +1,18 @@
-> {-# Language ScopedTypeVariables #-}
+> {-# Language ScopedTypeVariables, DeriveDataTypeable #-}
 
 > module CountingFinite where
 
-> data Bot = Bot deriving ( Eq, Ord )
+> import Data.Typeable ( Typeable )
+
+The data type consisting of precisely one defined value.
+
+> data Bot = Bot deriving ( Eq, Ord, Typeable )
 
 > instance Show Bot where
 
 >     show Bot = "_"
+
+A type class for (finite) types that can be collected in a list.
 
 > class AllValues a where
 
@@ -19,6 +25,9 @@
 > instance AllValues Bot where
 
 >    allValues = [Bot]
+
+Class for types that can be counted (countable types).
+The function `asInteger` should be injective.
 
 > class Countable i where
 
@@ -39,6 +48,9 @@ is bijective.
 > instance (Countable a, Countable b, Bounded a, Bounded b) => Countable (a, b) where
 >
 >    asInteger (a, b) = (1 + asInteger (maxBound :: b)) * asInteger a + asInteger b
+
+An inversion of the `Countable` class.
+Provides a function that transforms integers into objects of the type.
 
 > class InverseCountable i where
 >
