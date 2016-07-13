@@ -21,7 +21,12 @@ Additionally this data type is equipped with instances of `Bounded`,
 >            fullName
 >            []
 >            conss
->            [mkName "Bounded", mkName "Eq", mkName "Enum", mkName "Ord", mkName "Read"],
+>            [mkName "Bounded", 
+>             mkName "Eq", 
+>             mkName "Enum", 
+>             mkName "Ord", 
+>             mkName "Read", 
+>             mkName "Typeable"],
 >      sequence conss >>= mkTrivialShowInstance fullName,
 >      mkFiniteAllValuesInstance fullName,
 >      mkFiniteCountableInstance fullName,
