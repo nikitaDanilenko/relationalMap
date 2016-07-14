@@ -540,12 +540,13 @@ present relational functions in different text formats.
 
 Text variants of all operations and constants. 
 
-> unionText, intersectionText, compositionText, transpositionText, constantText,
+> unionText, intersectionText, compositionText, fcompositionText, transpositionText, constantText,
 >  idText, emptyText, largestText, identityText, quasipowerText,
 >  complementText, parallelSymbol, injectionText, pi1Text, pi2Text :: String
 > unionText          = "|_|"
 > intersectionText   = "|\"|"
-> compositionText    = ":*:"
+> compositionText    = ".*."
+> fcompositionText   = ":*:"
 > transpositionText  = "transpose"
 > constantText       = "const"
 > idText             = "id"
@@ -671,16 +672,16 @@ Parentheses are shown if and only if the Boolean argument is True.
 >     bin b op r s = showParen b (r . space . shows op . space . s)
 >     com b r      = showString complementText . space . showParen b r
 >     tra b r      = showString transpositionText . space . showParen b r
->     pro r s      = r . space . showString compositionText . space . s
+>     pro r s      = r . space . showString fcompositionText . space . s
 >     lpr b x r    = showParen b (  showString constantText 
 >                                  . showParen True (shows x) 
 >                                  . space 
->                                  . showString compositionText 
+>                                  . showString fcompositionText 
 >                                  . space 
 >                                  . r )
 >     rpr b r y    = showParen b (   r 
 >                                  . space 
->                                  . showString compositionText 
+>                                  . showString fcompositionText 
 >                                  . space 
 >                                  . showString constantText 
 >                                  . showParen True (shows y) )
