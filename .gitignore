@@ -1,0 +1,4 @@
+# GHC compilation noise
+
+*.dyn_hi
+*.dyn_o
