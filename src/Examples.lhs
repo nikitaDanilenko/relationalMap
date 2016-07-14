@@ -50,7 +50,14 @@ This function checks whether a set is transitive with respect to the supplied re
 > phiTransitiveSets r = Complement (l .** ((s .**. s) ./\. Complement s) **. l) where 
 >      s = phiRestrict r
 
+> phiTransitiveSets2 :: (Typeable a, Ord a, AllValues a) => Rel a a -> RelFunction a Bot Bot Bot
+> phiTransitiveSets2 r = Complement (l .** ((s .**. s) ./\. Complement s) **. l) where
+>   s = Constant r ./\. phiSetPairs
+
 A non-empty test relation.
+
+> plainR :: Rel A A
+> plainR = fromNumbersFull [] (Plain "R")
 
 > testrel :: Rel N4 N4
 > testrel = fromNumbersFull [(0, [1, 2]),
