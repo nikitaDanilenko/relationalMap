@@ -647,7 +647,7 @@ The actual function that shows a LaTeX version of a relational function.
 >   bin b op rf sf = showLatexParen b (rf . space . showString (binaryOpToLatex op) . space . sf)
 >   com _ rf       = showString fcomplLatex . inParens rf
 >   tra _ rf       = showString ftranspLatex . inParens rf
->   pro rf sf      = rf . space . showString fcompositionLatex . space . sf
+>   pro b rf sf    = showLatexParen b (rf . space . showString fcompositionLatex . space . sf)
 >   lpr b x rf     = showLatexParen b (  showConstant x
 >                                      . space 
 >                                      . showString fcompositionLatex 
@@ -668,11 +668,12 @@ Parentheses are shown if and only if the Boolean argument is True.
 >                  | otherwise = id
 
 > instance Show (RelFunction a b c d) where
->   showsPrec = toStringWith (DC (const shows) (showString idText) bin com tra pro lpr rpr) where
+>   showsPrec = toStringWith (DC con (showString idText) bin com tra pro lpr rpr) where
+>     con _ r      = showString constantText . showParen True (shows r)
 >     bin b op r s = showParen b (r . space . shows op . space . s)
 >     com b r      = showString complementText . space . showParen b r
 >     tra b r      = showString transpositionText . space . showParen b r
->     pro r s      = r . space . showString fcompositionText . space . s
+>     pro b r s    = showParen b (r . space . showString fcompositionText . space . s)
 >     lpr b x r    = showParen b (  showString constantText 
 >                                  . showParen True (shows x) 
 >                                  . space 
@@ -694,7 +695,7 @@ into a formatted string.
 >                             binFun   :: Bool -> BinaryOp -> ShowS -> ShowS -> ShowS,
 >                             complFun :: Bool -> ShowS -> ShowS,
 >                             transFun :: Bool -> ShowS -> ShowS,
->                             prodFun  :: ShowS -> ShowS -> ShowS,
+>                             prodFun  :: Bool -> ShowS -> ShowS -> ShowS,
 >                             lprodFun :: Bool -> RelName -> ShowS -> ShowS,
 >                             rprodFun :: Bool -> ShowS -> RelName -> ShowS} 
 
@@ -710,13 +711,15 @@ This function takes care of proper parentheses for relational functions.
 >                                                  (toStringWith c p' rf)
 >                                                  (toStringWith c p' sf)
 >       where p' = precOf bop
-> toStringWith c p (Complement rf)        = complFun c (isComposite rf) (toStringWith c p rf)
-> toStringWith c p (Transposition rf)     = transFun c (isComposite rf) (toStringWith c p rf)
-> toStringWith c p (Prod rf sf)           = prodFun c (toStringWith c p rf) (toStringWith c p sf)
+> toStringWith c p (Complement rf)        = complFun c (isComposite rf) (toStringWith c 0 rf)
+> toStringWith c p (Transposition rf)     = transFun c (isComposite rf) (toStringWith c 0 rf)
+> toStringWith c p (Prod rf sf)           = prodFun c (p >= constProdPrec) 
+>                                                     (toStringWith c constProdPrec rf) 
+>                                                     (toStringWith c constProdPrec sf)
 > toStringWith c p (LProd x rf)           = lprodFun c (p >= constProdPrec) 
 >                                                      (symbolicName x)
->                                                      (toStringWith c (min p constProdPrec) rf)
+>                                                      (toStringWith c constProdPrec rf)
 > toStringWith c p (RProd rf y)           = rprodFun c (p >= constProdPrec)
->                                                      (toStringWith c (min p constProdPrec) rf)
+>                                                      (toStringWith c constProdPrec rf)
 >                                                      (symbolicName y)
 > toStringWith _ _ (None _)               = showString "Unshowable function."
