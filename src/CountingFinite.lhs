@@ -2,6 +2,7 @@
 
 > module CountingFinite where
 
+> import Control.Arrow ( (***) )
 > import Data.Typeable ( Typeable )
 
 The data type consisting of precisely one defined value.
@@ -55,3 +56,30 @@ Provides a function that transforms integers into objects of the type.
 > class InverseCountable i where
 >
 >    intTo :: Integer -> i
+
+When restricted to the natural numbers,
+this function is the inverse of the Cantor function \(a, b) -> b + (a + b) * (a + b + 1) / 2.
+Note that its definition is only sensible on the natural numbers,
+since it is not injective on the rest.
+
+> countProduct :: Integer -> (Integer, Integer)
+> countProduct n | n <= 0 = (0, 0)
+>                | otherwise = let (a, b) = countProduct (n - 1)
+>                              in if a == 0 then (b + 1, 0) else (a - 1, b + 1)
+
+The following is an injective function, whose image are the natural numbers.
+It is thus a bijection from Z to N.
+
+> countIntegers :: Integer -> Integer
+> countIntegers n | n >= 0    = 2 * n
+>                 | otherwise = - (2 * n + 1)
+
+This function is the inverse of countIntegers, when the latter is restricted to the natural numbers.
+
+> uncountIntegers :: Integer -> Integer
+> uncountIntegers n | even n    = n `div` 2
+>                   | otherwise = -((1 + n) `div` 2)
+
+> instance (InverseCountable a, InverseCountable b) => InverseCountable (a, b) where
+>   intTo i = (intTo x, intTo y) where
+>     (x, y) = (uncountIntegers *** uncountIntegers) (countProduct (countIntegers i))
